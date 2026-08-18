@@ -1,25 +1,20 @@
 # Day 5 — End-to-End RAG
 
-Built a basic Retrieval-Augmented Generation pipeline.
+Built a basic **Retrieval-Augmented Generation (RAG)** pipeline using Python, Sentence Transformers, Scikit-learn, and the Gemini API.
 
-Pipeline:
+## 🔄 Pipeline
 
+```text
 User Query
-↓
+    ↓
 Query Embedding
-↓
+    ↓
 Semantic Retrieval
-↓
+    ↓
 Top-K Relevant Chunks
-↓
+    ↓
 Context Construction
-↓
-LLM
-↓
+    ↓
+Gemini LLM
+    ↓
 Grounded Answer
-
-Technologies:
-Python
-Sentence Transformers
-Scikit-learn
-Gemini API
