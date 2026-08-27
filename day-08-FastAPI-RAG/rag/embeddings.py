@@ -25,3 +25,6 @@ def create_query_embedding(query):
         normalize_embeddings= True
     )
     return query_embedding
+
+def get_embedding_dimension():
+    return model.get_sentence_embedding_dimension()
