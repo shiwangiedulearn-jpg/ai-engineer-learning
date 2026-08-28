@@ -1,14 +1,25 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue, PayloadSchemaType
 import uuid
+from dotenv import load_dotenv
+import os
 
-qdrant= QdrantClient(path= "qdrant_data")
+load_dotenv()
+qdrant= QdrantClient(
+    url=os.getenv("QDRANT_URL"),
+    api_key=os.getenv("QDRANT_API_KEY")
+)
 print("Qdrant connected")
 
 collection_name= "research_knowledge"
 def create_collection(embedding_dimension):
 
     collections = qdrant.get_collections().collections
+    qdrant.create_payload_index(
+        collection_name=collection_name,
+        field_name="document_id",
+        field_schema=PayloadSchemaType.KEYWORD
+    )
 
     existing_collections = [
         collection.name for collection in collections

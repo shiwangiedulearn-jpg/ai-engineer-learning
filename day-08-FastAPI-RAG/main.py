@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from google import genai
 from dotenv import load_dotenv
 import os
+import hashlib
 from pathlib import Path
 import uuid
 
@@ -15,7 +16,8 @@ from rag.documents import extract_text, load_documents, create_chunks
 app= FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173",
+    "http://127.0.0.1:5173",],
     allow_credentials= True,
     allow_methods=["*"],
     allow_headers=["*"]
@@ -54,80 +56,109 @@ for document in documents:
 
 #search relevnt chunks---------------------------------------------------------------------
 
-def search_documents(query,document_ids, top_k=3):
-    query_embedding= create_query_embedding(query)
-    results= search_qdrant(
+def search_documents(query, document_ids, top_k=3):
+
+    query_embedding = create_query_embedding(query)
+
+    results = search_qdrant(
         query_embedding,
         document_ids,
         top_k
     )
+
     return results
-
-# test_query= "What is LDL cholestrol?"
-# results= search_documents(test_query)
-# print("\nSearch result")
-# for result in results:
-#     print("\nScores: ", result.score)
-#     print("Source: ", result.payload["source"])
-#     print("Text: ", result.payload["text"][:200])
-
-#  #gemini answer------------------------------------------------------------------
-# answer= generate_answer(client,test_query, results)
-# print("\nGemini answer:")
-# print(answer)
 
 class QuestionRequest(BaseModel):
     question: str
     document_ids: list[str]=[]
 
+def calculate_file_hash(file_path):
+    sha256 = hashlib.sha256()
+
+    with open(file_path, "rb") as file:
+        for chunk in iter(lambda: file.read(8192), b""):
+            sha256.update(chunk)
+
+    return sha256.hexdigest()
+
 @app.post("/upload")
-async def upload_document(file: UploadFile= File(...)):
-    document_id= str(uuid.uuid4())
-    allowed_extensions= [".txt", ".pdf", ".docx"]
+async def upload_document(file: UploadFile = File(...)):
+
+    allowed_extensions = [".txt", ".pdf", ".docx"]
+
     if Path(file.filename).suffix.lower() not in allowed_extensions:
         raise HTTPException(
             status_code=400,
-            detail= "Unsupported file type. Please upload a txt, PDF, or DOCX file."
+            detail="Unsupported file type. Please upload a txt, PDF, or DOCX file."
         )
 
-    filename= Path(file.filename).name
-    file_path= UPLOAD_DIR/ f"{document_id}_{filename}"
+    filename = Path(file.filename).name
 
-    with open(file_path, "wb") as buffer:
+    # Temporarily save the uploaded file
+    temp_path = UPLOAD_DIR / f"temp_{filename}"
+
+    with open(temp_path, "wb") as buffer:
         buffer.write(await file.read())
-    try:
-        text= extract_text(file_path)
-    except Exception:
-        file_path.unlink(missing_ok= True)
-        return{
-            "document_id": document_id,
-            "filename": filename,
-            "message": "Could not process the uploaded document"
-        }
 
-    if not text or not text.strip():
+    # Calculate hash of uploaded file
+    file_hash = calculate_file_hash(temp_path)
+
+    # Check existing files for duplicate
+    for existing_file in UPLOAD_DIR.iterdir():
+
+        if not existing_file.is_file():
+            continue
+
+        if existing_file.name.startswith("temp_"):
+            continue
+
+        if calculate_file_hash(existing_file) == file_hash:
+            temp_path.unlink(missing_ok=True)
+
+            raise HTTPException(
+                status_code=409,
+                detail=f"Document already exists: {existing_file.name}"
+            )
+
+    # Create ID only after confirming it is not a duplicate
+    document_id = str(uuid.uuid4())
+
+    file_path = UPLOAD_DIR / f"{document_id}_{filename}"
+
+    temp_path.rename(file_path)
+
+    try:
+        text = extract_text(file_path)
+    except Exception:
         file_path.unlink(missing_ok=True)
+
         raise HTTPException(
             status_code=400,
-            detail= "Could not extract text from document"
+            detail="Could not process the uploaded document"
         )
-    document={
-        "text":text,
-        "source": file.filename,
+    if not text or not text.strip():
+        file_path.unlink(missing_ok=True)
+
+        raise HTTPException(
+            status_code=400,
+            detail="Could not extract text from document"
+        )
+    document = {
+        "text": text,
+        "source": filename,
     }
-    chunks= create_chunks([document])
-    embeddings= create_embeddings(chunks)
+    chunks = create_chunks([document])
+    embeddings = create_embeddings(chunks)
     store_embeddings(
         chunks,
         embeddings,
         document_id
     )
-        
-    return{
+    return {
         "document_id": document_id,
-        "filename": file.filename,
+        "filename": filename,
         "chunks_created": len(chunks),
-        "message": "File recieved successfully"
+        "message": "File received successfully"
     }
 
 @app.get("/")
@@ -161,7 +192,7 @@ def delete_uploaded_document(document_id: str):
     for file_path in files:
         file_path.unlink()
     return{
-        "document_ids": document_ids,
+        "document_ids": document_id,
         "filename": files[0].name,
         "message": "Document deleted successfully"
     }
@@ -192,11 +223,13 @@ def ask_question(request: QuestionRequest):
             "answer": "No information was found in selected document.",
             "source":[]
         }
-    answer = generate_answer(client,query, results)
+
+    answer = generate_answer(client, query, results)
     sources= list({
         result.payload["source"]
         for result in results
     })
+    
     return{
         "question": query,
         "document_ids": document_ids,
