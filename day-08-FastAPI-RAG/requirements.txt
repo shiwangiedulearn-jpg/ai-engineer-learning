@@ -4,7 +4,6 @@ python-multipart
 python-dotenv
 qdrant-client
 google-genai
-sentence-transformers
 pypdf
 python-docx
 numpy
