@@ -1,0 +1,26 @@
+@media (max-width: 640px) {
+  .page {
+    width: min(100% - 20px, 900px);
+    padding-top: 28px;
+  }
+
+  .header h1 {
+    font-size: 30px;
+  }
+
+  .card {
+    padding: 18px;
+  }
+
+  .upload-row {
+    flex-direction: column;
+  }
+
+  .upload-row button {
+    width: 100%;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+  }
+}
