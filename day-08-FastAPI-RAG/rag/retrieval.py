@@ -15,11 +15,6 @@ collection_name= "research_knowledge"
 def create_collection(embedding_dimension):
 
     collections = qdrant.get_collections().collections
-    qdrant.create_payload_index(
-        collection_name=collection_name,
-        field_name="document_id",
-        field_schema=PayloadSchemaType.KEYWORD
-    )
 
     existing_collections = [
         collection.name for collection in collections
@@ -36,6 +31,14 @@ def create_collection(embedding_dimension):
         print("Qdrant collection created")
     else:
         print("Qdrant collection already exists")
+
+    qdrant.create_payload_index(
+        collection_name=collection_name,
+        field_name="document_id",
+        field_schema=PayloadSchemaType.KEYWORD
+    )
+
+    print("document_id index ready")
 
 def store_embeddings(chunks, embeddings, document_id):
     points=[]

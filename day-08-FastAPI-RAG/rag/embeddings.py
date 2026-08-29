@@ -2,7 +2,8 @@ from google import genai
 from google.genai import types
 import os
 import numpy as np
-
+from dotenv import load_dotenv
+load_dotenv()
 client = genai.Client(
     api_key=os.getenv("GEMINI_API_KEY")
 )
@@ -41,6 +42,7 @@ def create_query_embedding(query):
         model=EMBEDDING_MODEL,
         contents=query,
         config=types.EmbedContentConfig(
+            task_type="RETRIEVAL_DOCUMENT",
             output_dimensionality=EMBEDDING_DIMENSION
         )
     )
