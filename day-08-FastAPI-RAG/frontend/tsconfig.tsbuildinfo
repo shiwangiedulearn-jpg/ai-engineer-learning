@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/api/client.ts","./src/components/answerdisplay.tsx","./src/components/documentlist.tsx","./src/components/documentupload.tsx","./src/components/questionbox.tsx"],"version":"5.9.3"}
